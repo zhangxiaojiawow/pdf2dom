@@ -69,6 +69,8 @@ class Lines(ElementCollection):
         start_of_para = end_of_para = False # start/end of paragraph
         start_of_sen = end_of_sen = False   # start/end of sentence
         for row in rows:
+            # mulite lines in a row should be in line order
+            row.sort_in_line_order()
             end_of_sen = row[-1].text.strip().endswith(punc)
             w =  row[-1].bbox[2]-row[0].bbox[0]
 
