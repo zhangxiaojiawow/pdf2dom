@@ -197,9 +197,15 @@ class RawPage(BasePage, Layout):
                 x0 = (u1+m0)/2.0
                 c1, c2 = x0-X0, X1-x0 # column width
                 w1, w2 = u1-u0, m1-m0 # line width
+                # for the last row of tow column section,  the left column may be the final sentence in paragraph,
+                # so the width of left column may be smaller than the right column, to avoid mismerged into one column,
+                # we use the gap between the left column and the right column to determine whether
+                # it is a two column section
+                gap = abs(m0-u0)
                 f = 2.0
-                if not 1/f<=c1/c2<=f or w1/c1<0.33 or w2/c2<0.33: 
-                    current_num_col = 1
+                if not 1/f<=c1/c2<=f or w1/c1<0.33 or w2/c2<0.33:
+                    if gap < (X1-X0) / 4.0:
+                        current_num_col = 1
 
             # process exceptions
             if pre_num_col==2 and current_num_col==1:
