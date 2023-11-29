@@ -178,8 +178,35 @@ class Collection(BaseCollection, IText):
             idx = 3 if text_direction and self.is_vertical_text else 0
             groups.sort(key=lambda group: group.bbox[idx])
 
+        if len(groups) > 2:
+            groups = self.regroup_two_columns()
         return groups
 
+    def regroup_two_columns(self):
+        """
+        in some case, when the text is aligned on both sides, the word spacing may be large,
+        so it will be grouped into more than two columns, which is not what we want.
+        in this case, we need to regroup the columns into two columns.
+        """
+        sorted_instantces = sorted(self._instances, key=lambda instance: instance.bbox[0])
+        # find the largest gap, then split columns
+        max_gap, max_idx = 0, 0
+        for i in range(len(sorted_instantces)-1):
+            gap = sorted_instantces[i+1].bbox[0] - sorted_instantces[i].bbox[2]
+            if gap > max_gap:
+                max_gap, max_idx = gap, i
+        # find the gap in the middle of two columns
+        middle = (sorted_instantces[0].bbox[0] + sorted_instantces[-1].bbox[2]) / 2
+        middle_idx, middle_gap = 0, 0
+        for i in range(max_idx, len(sorted_instantces)-1):
+            if sorted_instantces[i].bbox[2] < middle < sorted_instantces[i+1].bbox[0]:
+                middle_idx = i
+                middle_gap = sorted_instantces[i+1].bbox[0] - sorted_instantces[i].bbox[2]
+        # if the gap in the middle is not significantly shorted than the max_gap, then split in the middle
+        if middle_gap * 2 > max_gap:
+            return [self.__class__(sorted_instantces[:middle_idx+1]), self.__class__(sorted_instantces[middle_idx+1:])]
+        else:
+            return [self.__class__(sorted_instantces[:max_idx+1]), self.__class__(sorted_instantces[max_idx+1:])]
 
     def group_by_rows(self, factor:float=0.0, sorted:bool=True, text_direction:bool=False):
         '''Group elements into rows based on the bbox.'''
