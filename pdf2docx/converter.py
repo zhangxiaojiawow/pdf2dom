@@ -134,12 +134,11 @@ class Converter:
         prev_color = None
         for i, (page, raw_page) in enumerate(zip(self._pages, self._fitz_doc.pages())):
             if not page.finalized: continue
-            if i < len(self._pages)-1:
-                if page.is_continuous_with_page(self._pages[i+1]):
-                    prev_color = page.plot(raw_page, prev_color)
-                else:
-                    page.plot(raw_page, prev_color)
-                    prev_color = None
+            if i < len(self._pages) - 1 and page.is_continuous_with_page(self._pages[i + 1]):
+                prev_color = page.plot(raw_page, prev_color)
+            else:
+                page.plot(raw_page, prev_color)
+                prev_color = None
         self._fitz_doc.save("output.pdf")
         return self
 
