@@ -11,6 +11,8 @@ from docx import Document
 
 from .page.Page import Page
 from .page.Pages import Pages
+from .text.TextBlock import TextBlock
+from collections import Counter
 
 # check PyMuPDF>=1.19.x
 if list(map(int, fitz.VersionBind.split("."))) < [1, 19, 0]:
@@ -18,7 +20,7 @@ if list(map(int, fitz.VersionBind.split("."))) < [1, 19, 0]:
 
 # logging
 logging.basicConfig(
-    level=logging.INFO, 
+    level=logging.INFO,
     format="[%(levelname)s] %(message)s")
 
 
@@ -34,7 +36,7 @@ class Converter:
     '''
 
     def __init__(
-        self, pdf_file: str = None, password: str = None, stream: bytes = None
+            self, pdf_file: str = None, password: str = None, stream: bytes = None
     ):
         '''Initialize fitz object with given pdf file path.
 
@@ -58,7 +60,6 @@ class Converter:
 
         # initialize empty pages container
         self._pages = Pages()
-
 
     @property
     def fitz_doc(self): return self._fitz_doc    
@@ -111,7 +112,7 @@ class Converter:
     # Parsing process: load -> analyze document -> parse pages -> make docx
     # -----------------------------------------------------------------------
 
-    def parse(self, start:int=0, end:int=None, pages:list=None, **kwargs):
+    def parse(self, start: int = 0, end: int = None, pages: list = None, **kwargs):
         '''Parse pages in three steps:
         * open PDF file with ``PyMuPDF``
         * analyze whole document, e.g. page section, header/footer and margin
@@ -125,10 +126,24 @@ class Converter:
         '''
         return self.load_pages(start, end, pages) \
             .parse_document(**kwargs) \
-            .parse_pages(**kwargs)
+            .parse_pages(**kwargs) \
+            .print_document()
 
+    def print_document(self):
+        self._pages.extract_header_footer()
+        prev_color = None
+        for i, (page, raw_page) in enumerate(zip(self._pages, self._fitz_doc.pages())):
+            if not page.finalized: continue
+            if i < len(self._pages)-1:
+                if page.is_continuous_with_page(self._pages[i+1]):
+                    prev_color = page.plot(raw_page, prev_color)
+                else:
+                    page.plot(raw_page, prev_color)
+                    prev_color = None
+        self._fitz_doc.save("output.pdf")
+        return self
 
-    def load_pages(self, start:int=0, end:int=None, pages:list=None):
+    def load_pages(self, start: int = 0, end: int = None, pages: list = None):
         '''Step 1 of converting process: open PDF file with ``PyMuPDF``, 
         especially for password encrypted file.
         
@@ -163,7 +178,7 @@ class Converter:
         '''Step 2 of converting process: analyze whole document, e.g. page section,
         header/footer and margin.'''
         logging.info(self._color_output('[2/4] Analyzing document...'))
-        
+
         self._pages.parse(self.fitz_doc, **kwargs)
         return self
 
@@ -184,7 +199,6 @@ class Converter:
                     logging.error('Ignore page %d due to parsing page error: %s', pid, e)
                 else:
                     raise ConversionException(f'Error when parsing page {pid}: {e}')
-
         return self
 
 
@@ -268,7 +282,7 @@ class Converter:
             f.write(json.dumps(self.store(), indent=4))
     
 
-    def deserialize(self, filename:str):
+    def deserialize(self, filename: str):
         '''Load parsed pages from specified JSON file.'''
         with open(filename, 'r') as f:
             data = json.load(f)
