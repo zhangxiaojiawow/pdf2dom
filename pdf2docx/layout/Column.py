@@ -33,9 +33,10 @@ class Column(Element, Layout):
 
     def is_agjacent_with(self, other, **kwargs):
         """Check if current column is adjacent with other column."""
-
-        last_left = [block for block in self.blocks if block.is_text_block][-1]
-        first_right = [block for block in other.blocks if block.is_text_block][0]
+        left_blocks = [block for block in self.blocks if block.is_text_block]
+        last_left = left_blocks[-1] if left_blocks else None
+        right_blocks = [block for block in other.blocks if block.is_text_block]
+        first_right = right_blocks[0] if right_blocks else None
         if last_left is None or first_right is None:
             return False
         left_spans = [span for span in last_left.lines[-1].spans if isinstance(span, TextSpan)]
