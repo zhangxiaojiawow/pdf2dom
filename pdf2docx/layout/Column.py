@@ -26,9 +26,32 @@ from ..common.Element import Element
 from ..layout.Layout import Layout
 from ..shape.Shape import Shape
 from ..text.Line import Line
+from ..text.TextSpan import TextSpan
 
 
 class Column(Element, Layout):
+
+    def is_agjacent_with(self, other, **kwargs):
+        """Check if current column is adjacent with other column."""
+
+        last_left = [block for block in self.blocks if block.is_text_block][-1]
+        first_right = [block for block in other.blocks if block.is_text_block][0]
+        if last_left is None or first_right is None:
+            return False
+        left_spans = [span for span in last_left.lines[-1].spans if isinstance(span, TextSpan)]
+        left_font = left_spans[-1].font if left_spans else None
+        right_spans = [span for span in first_right.lines[0].spans if isinstance(span, TextSpan)]
+        right_font = right_spans[0].font if right_spans else None
+        left_size = left_spans[-1].size if left_spans else None
+        right_size = right_spans[0].size if right_spans else None
+
+        if last_left.lines.last_line_is_end_pargraph(kwargs['line_break_free_space_ratio']):
+            return False
+        elif last_left.lines.last_line_is_end_sentence() and \
+                (left_font != right_font or max(left_size, right_size) / min(left_size, right_size) > 1.2):
+            return False
+        else:
+            return True
 
     def __init__(self, blocks=None, shapes=None):
         '''Initialize empty column.'''

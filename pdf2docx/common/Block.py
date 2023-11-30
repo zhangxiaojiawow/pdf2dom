@@ -32,8 +32,16 @@ class Block(Element):
         self.after_space = raw.get('after_space', 0.0)        
         self.line_space = raw.get('line_space', 0.0)
         self.line_space_type = raw.get('line_space_type', 1) # 0-exactly, 1-relatively
+        self.is_header = False;
+        self.is_footer = False;
 
         super().__init__(raw, parent)
+
+    def mark_header(self):
+        self.is_header = True
+
+    def mark_footer(self):
+        self.is_footer = True
 
 
     @property

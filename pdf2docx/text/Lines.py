@@ -41,6 +41,30 @@ class Lines(ElementCollection):
             spans.extend(line.image_spans)
         return spans
 
+    def last_line_is_end_pargraph(self, line_break_free_space_ratio:float):
+        rows = self.group_by_physical_rows()
+
+        # skip if only one row
+        num = len(rows)
+
+        # standard row width with first row excluded, considering potential indentation of fist line
+        if num==1:
+            W = rows[0][-1].bbox[2] - rows[0][0].bbox[0]
+        else:
+            W = max(row[-1].bbox[2] - row[0].bbox[0] for row in rows[1:])
+
+        punc = tuple(constants.SENTENCE_END_PUNC)
+        row = rows[-1]
+        w = row[-1].bbox[2] - row[0].bbox[0]
+        end_of_sen = row[-1].text.strip().endswith(punc)
+        # is end of paragraph
+        return end_of_sen and w / W <= 1.0 - line_break_free_space_ratio
+
+    def last_line_is_end_sentence(self):
+        rows = self.group_by_physical_rows()
+        row = rows[-1]
+        punc = tuple(constants.SENTENCE_END_PUNC)
+        return row[-1].text.strip().endswith(punc)
     
     def split_vertically_by_text(self, line_break_free_space_ratio:float, new_paragraph_free_space_ratio:float):
         '''Split lines into separate paragraph by checking text. The parent text block consists of 

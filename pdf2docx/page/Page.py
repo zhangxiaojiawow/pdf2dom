@@ -46,20 +46,21 @@ from ..common.share import debug_plot
 from .BasePage import BasePage
 from ..layout.Sections import Sections
 from ..image.ImageBlock import ImageBlock
+from ..text.TextSpan import TextSpan
 
 
 class Page(BasePage):
     '''Object representing the whole page, e.g. margins, sections.'''
 
-    def __init__(self, id:int=-1, 
-                        skip_parsing:bool=True,
-                        width:float=0.0,
-                        height:float=0.0,
-                        header:str=None, 
-                        footer:str=None, 
-                        margin:tuple=None, 
-                        sections:Sections=None,
-                        float_images:BaseCollection=None):
+    def __init__(self, id: int = -1,
+                 skip_parsing: bool = True,
+                 width: float = 0.0,
+                 height: float = 0.0,
+                 header: str = None,
+                 footer: str = None,
+                 margin: tuple = None,
+                 sections: Sections = None,
+                 float_images: BaseCollection = None):
         '''Initialize page layout.
 
         Args:
@@ -72,7 +73,7 @@ class Page(BasePage):
             margin (tuple, optional): Page margin. Defaults to None.
             sections (Sections, optional): Page contents. Defaults to None.
             float_images (BaseCollection, optional): Float images in th is page. Defaults to None.
-        ''' 
+        '''
         # page index
         self.id = id
         self.skip_parsing = skip_parsing
@@ -88,33 +89,31 @@ class Page(BasePage):
         # page header, footer
         self.header = header or ''
         self.footer = footer or ''
-        
+
         # floating images are separate node under page
         self.float_images = float_images or BaseCollection()
 
         self._finalized = False
 
-
     @property
-    def finalized(self): return self._finalized   
-
+    def finalized(self):
+        return self._finalized
 
     def store(self):
         '''Store parsed layout in dict format.'''
         res = {
-            'id'      : self.id,
-            'width'   : self.width,
-            'height'  : self.height,
-            'margin'  : self.margin,
+            'id': self.id,
+            'width': self.width,
+            'height': self.height,
+            'margin': self.margin,
             'sections': self.sections.store(),
-            'header'  : self.header,
-            'footer'  : self.footer,
-            'floats'  : self.float_images.store()
+            'header': self.header,
+            'footer': self.footer,
+            'floats': self.float_images.store()
         }
         return res
 
-
-    def restore(self, data:dict):
+    def restore(self, data: dict):
         '''Restore Layout from parsed results.'''
         # page id
         self.id = data.get('id', -1)
@@ -123,7 +122,7 @@ class Page(BasePage):
         self.width = data.get('width', 0.0)
         self.height = data.get('height', 0.0)
         self.margin = data.get('margin', (0,) * 4)
-        
+
         # parsed layout
         self.sections.restore(data.get('sections', []))
         self.header = data.get('header', '')
@@ -138,14 +137,12 @@ class Page(BasePage):
 
         return self
 
-
     @debug_plot('Final Layout')
     def parse(self, **settings):
         '''Parse page layout.'''
         self.sections.parse(**settings)
         self._finalized = True
-        return self.sections # for debug plot
-
+        return self.sections  # for debug plot
 
     def extract_tables(self, **settings):
         '''Extract content from tables (top layout only).
@@ -155,21 +152,20 @@ class Page(BasePage):
             page or restored from parsed data.
         '''
         # table blocks
-        collections = []        
+        collections = []
         for section in self.sections:
             for column in section:
                 if settings['extract_stream_table']:
                     collections.extend(column.blocks.table_blocks)
                 else:
                     collections.extend(column.blocks.lattice_table_blocks)
-        
+
         # check table
-        tables = [] # type: list[ list[list[str]] ]
+        tables = []  # type: list[ list[list[str]] ]
         for table_block in collections:
             tables.append(table_block.text)
 
         return tables
-
 
     def make_docx(self, doc):
         '''Set page size, margin, and create page. 
@@ -185,14 +181,14 @@ class Page(BasePage):
         if doc.paragraphs:
             section = doc.add_section(WD_SECTION.NEW_PAGE)
         else:
-            section = doc.sections[0] # a default section is there when opening docx
+            section = doc.sections[0]  # a default section is there when opening docx
 
         # page size
-        section.page_width  = Pt(self.width)
+        section.page_width = Pt(self.width)
         section.page_height = Pt(self.height)
 
         # page margin
-        left,right,top,bottom = self.margin
+        left, right, top, bottom = self.margin
         section.left_margin = Pt(left)
         section.right_margin = Pt(right)
         section.top_margin = Pt(top)
@@ -201,11 +197,44 @@ class Page(BasePage):
         # create flow layout: sections
         self.sections.make_docx(doc)
 
- 
-    def _restore_float_images(self, raws:list):
+    def _restore_float_images(self, raws: list):
         '''Restore float images.'''
         self.float_images.reset()
         for raw in raws:
             image = ImageBlock(raw)
             image.set_float_image_block()
             self.float_images.append(image)
+
+    def is_continuous_with_page(self, nextPage):
+        """Check if the next page is continuous with this page."""
+        # get the last no-footer block of this page
+        cur_page_blocks = [block for section in self.sections for column in section
+                           for block in column.blocks
+                           if block.is_text_block and not (block.is_footer or block.is_header)]
+        last_block_current_page = cur_page_blocks[-1] if cur_page_blocks else None
+        next_page_blocks = [block for section in nextPage.sections for column in section
+                            for block in column.blocks
+                            if block.is_text_block and not (block.is_footer or block.is_header)]
+        first_block_next_page = next_page_blocks[0] if next_page_blocks else None
+        if (last_block_current_page is not None and
+                last_block_current_page.lines.last_line_is_end_pargraph(line_break_free_space_ratio=0.1)):
+            return False
+        elif (last_block_current_page is not None and
+              last_block_current_page.lines.last_line_is_end_sentence()):
+            # 判断下一页的第一个block是否是开头, 如果是， 则两个不相临
+            if first_block_next_page is None:
+                return False
+            last_line_last_block = last_block_current_page.lines[-1]
+            last_span = [span for span in last_line_last_block.spans if isinstance(span, TextSpan)][-1]
+            first_span = [span for span in first_block_next_page.lines[0].spans if isinstance(span, TextSpan)][0]
+            last_span_font, last_span_size = last_span.font, last_span.size
+            first_span_font, first_span_size = first_span.font, first_span.size
+            if (last_span_font != first_span_font or
+                    max(last_span_size, first_span_size) / min(last_span_size, first_span_size) > 1.2):
+                return False
+            return True
+        else:
+            return True
+
+    def plot(self, raw_page, first_block_color=None):
+        return self.sections.plot(raw_page, first_block_color)

@@ -116,7 +116,7 @@ class TextBlock(Block):
             self.lines.append(line_or_lines)
 
 
-    def plot(self, page):
+    def plot(self, page, color=None):
         '''Plot block/line/span area for debug purpose.
         
         Args:
@@ -126,16 +126,20 @@ class TextBlock(Block):
         blue = rgb_component_from_name('blue')   
         super().plot(page, stroke=blue, dashes='[3.0 3.0] 0')
 
+        if color is None:
+            color = rgb_component_from_name('')
+        page.draw_rect(self.bbox, color=color, fill=color, width=0.5, dashes=False, overlay=False, fill_opacity=0.5)
+        return color
         # lines and spans
-        for line in self.lines:
-            # line border in red
-            red = rgb_component_from_name('red')
-            line.plot(page, stroke=red)
-
-            # span regions in random color
-            for span in line.spans:
-                c = rgb_component_from_name('')                
-                span.plot(page, color=c)
+        # for line in self.lines:
+        #     # line border in red
+        #     red = rgb_component_from_name('')
+        #     line.plot(page, stroke=red, fill=red)
+        #
+        #     # span regions in random color
+        #     for span in line.spans:
+        #         c = rgb_component_from_name('')
+        #         span.plot(page, color=c)
 
 
     def parse_text_format(self, shapes):
